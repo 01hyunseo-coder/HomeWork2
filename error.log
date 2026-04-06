@@ -1,0 +1,23 @@
+Traceback (most recent call last):
+  File "C:\Users\hyuns\AppData\Local\Programs\Python\Python312\Lib\site-packages\retinaface\commons\package_utils.py", line 19, in validate_for_keras3
+    import tf_keras
+ModuleNotFoundError: No module named 'tf_keras'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\hyuns\.gemini\antigravity\scratch\mlops_emotion_api\test_import.py", line 5, in <module>
+    import main
+  File "C:\Users\hyuns\.gemini\antigravity\scratch\mlops_emotion_api\main.py", line 6, in <module>
+    from deepface import DeepFace
+  File "C:\Users\hyuns\AppData\Local\Programs\Python\Python312\Lib\site-packages\deepface\DeepFace.py", line 22, in <module>
+    from deepface.modules import (
+  File "C:\Users\hyuns\AppData\Local\Programs\Python\Python312\Lib\site-packages\deepface\modules\modeling.py", line 19, in <module>
+    from deepface.models.face_detection import (
+  File "C:\Users\hyuns\AppData\Local\Programs\Python\Python312\Lib\site-packages\deepface\models\face_detection\RetinaFace.py", line 6, in <module>
+    from retinaface import RetinaFace as rf
+  File "C:\Users\hyuns\AppData\Local\Programs\Python\Python312\Lib\site-packages\retinaface\RetinaFace.py", line 20, in <module>
+    package_utils.validate_for_keras3()
+  File "C:\Users\hyuns\AppData\Local\Programs\Python\Python312\Lib\site-packages\retinaface\commons\package_utils.py", line 24, in validate_for_keras3
+    raise ValueError(
+ValueError: You have tensorflow 2.21.0 and this requires tf-keras package. Please run `pip install tf-keras` or downgrade your tensorflow.

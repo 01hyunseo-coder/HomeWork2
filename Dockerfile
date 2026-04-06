@@ -1,0 +1,36 @@
+# 1. Base Image - 모델 구동 가볍고 안정적인 파이썬 3.10 slim 버전 사용
+FROM python:3.10-slim
+
+# 2. 작업 디렉토리 설정
+WORKDIR /app
+
+# 3. 환경 변수 설정 (파이썬 바이트코드 생성 방지, 로그 버퍼링 비활성화)
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# 4. 필수 시스템 패키지 설치 및 캐시 정리 (최적화)
+# opencv-python-headless를 사용하므로 libgl1-mesa-glx는 제외하여 이미지 용량을 절약합니다.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 5. 의존성 패키지 캐싱 레이어 활용을 위해 requirements.txt 먼저 복사
+COPY requirements.txt .
+
+# 6. 패키지 설치 (설치 후 pip 캐시를 정리하여 용량 최적화)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# (선택) 모델 다운로드를 이미지 빌드 시에 진행하여 컨테이너 실행 속도 최적화
+# 런타임에 모델을 받을 경우 첫 API 호출 시 딜레이가 생깁니다.
+RUN python -c "from deepface import DeepFace; DeepFace.build_model('Emotion')"
+
+# 7. 앱 소스 코드 복사
+COPY . .
+
+# 8. 컨테이너 개방 포트 알림
+EXPOSE 8000
+
+# 9. 서버 실행 명령어
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
