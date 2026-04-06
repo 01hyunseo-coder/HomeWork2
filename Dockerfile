@@ -9,9 +9,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 # 4. 필수 시스템 패키지 설치 및 캐시 정리 (최적화)
-# opencv-python-headless를 사용하므로 libgl1-mesa-glx는 제외하여 이미지 용량을 절약합니다.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    libxcb1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
