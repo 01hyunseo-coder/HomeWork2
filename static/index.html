@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion AI - 얼굴 감정 인식</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="app-container">
+        <header>
+            <h1 class="logo">Emotion <span>AI</span></h1>
+            <p class="subtitle">AI가 당신의 얼굴에서 감정을 읽어냅니다.</p>
+        </header>
+
+        <section class="upload-section glass">
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <div class="icon-box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                    </div>
+                    <p class="main-text">이미지를 드래그하거나 클릭하여 업로드</p>
+                    <p class="sub-text">JPG, PNG 파일 지원</p>
+                </div>
+                <input type="file" id="file-input" accept="image/*" hidden>
+            </div>
+
+            <div id="preview-container" class="preview-container hidden">
+                <img id="image-preview" src="" alt="Preview">
+                <button id="cancel-btn" class="btn-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <button id="analyze-btn" class="btn-primary disabled" disabled>분석 시작하기</button>
+        </section>
+
+        <section id="result-section" class="result-section glass hidden">
+            <div class="result-header">
+                <h2>분석 결과</h2>
+                <div id="dominant-badge" class="badge">Happy</div>
+            </div>
+            
+            <div class="chart-container">
+                <div id="emotion-bars" class="emotion-bars">
+                    <!-- Bars will be injected here -->
+                </div>
+            </div>
+        </section>
+
+        <div id="loader" class="loader-overlay hidden">
+            <div class="loader-content">
+                <div class="spinner"></div>
+                <p>AI가 감정을 분석 중입니다...</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
