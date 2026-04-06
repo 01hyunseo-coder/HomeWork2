@@ -22,9 +22,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# (선택) 모델 다운로드를 이미지 빌드 시에 진행하여 컨테이너 실행 속도 최적화
-# 런타임에 모델을 받을 경우 첫 API 호출 시 딜레이가 생깁니다.
-RUN python -c "import cv2, numpy as np; from deepface import DeepFace; img = np.zeros((224, 224, 3), dtype=np.uint8); DeepFace.analyze(img, actions=['emotion'], enforce_detection=False)"
+# (선택 사항) 로컬 모델 다운로드를 사용할 수 있지만 CI 환경에서 불안정할 수 있으므로 런타임에 다운로드합니다.
 
 # 7. 앱 소스 코드 복사
 COPY . .
