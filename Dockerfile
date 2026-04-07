@@ -13,7 +13,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # MediaPipe는 이미지 처리를 위해 다수의 공유 라이브러리를 필요로 합니다.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
