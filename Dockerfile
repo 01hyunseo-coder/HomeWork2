@@ -24,7 +24,7 @@ COPY requirements.txt .
 # 6. 패키지 설치 (CPU-only PyTorch 및 최적화)
 # --index-url을 사용하여 CPU 전용 버전을 설치하여 이미지 용량과 빌드 시간을 획기적으로 줄입니다.
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+    pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
 # 7. 모델 사전 다운로드 (빌드 속도 및 런타임 성능 최적화)
 # 이미지 빌드 시 모델을 미리 캐싱하여 서비스 시작 속도를 높입니다.
