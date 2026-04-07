@@ -22,8 +22,14 @@ classifier = pipeline("image-classification", model="dima806/facial_emotions_ima
 
 # [FACE DETECTION] MediaPipe Face Detection 초기화
 # 고글, 모자, 마스크 등에도 강인한 최신 딥러닝 기반 얼굴 인식기입니다.
-mp_face_detection = mp.solutions.face_detection
-face_detector = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+try:
+    import mediapipe as mp
+    mp_face_detection = mp.solutions.face_detection
+    face_detector = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+    print("MediaPipe Face Detection initialized successfully.")
+except Exception as e:
+    print(f"FAILED to initialize MediaPipe: {str(e)}")
+    face_detector = None
 
 # [STATIC FILES MOUNT]
 if not os.path.exists("static"):
