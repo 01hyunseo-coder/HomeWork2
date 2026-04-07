@@ -2,7 +2,6 @@ import io
 import os
 import cv2
 import numpy as np
-import mediapipe as mp
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
@@ -12,24 +11,26 @@ from transformers import pipeline
 # [INIT] FastAPI 앱 초기화
 app = FastAPI(
     title="Emotion Classification API",
-    description="Transformers(ViT) + MediaPipe 기반의 정밀 얼굴 감정 분류 API입니다.",
-    version="3.0.0"
+    description="Transformers(ViT) + OpenCV DNN 기반의 안정적인 얼굴 감정 분류 API입니다.",
+    version="4.0.0"
 )
 
-# [MODELS] 로딩 및 캐싱
+# [MODELS] Transformers 모델 로딩
 print("Loading Transformers model 'dima806/facial_emotions_image_detection'...")
 classifier = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
 
-# [FACE DETECTION] MediaPipe Face Detection 초기화
-# 고글, 모자, 마스크 등에도 강인한 최신 딥러닝 기반 얼굴 인식기입니다.
-try:
-    import mediapipe as mp
-    mp_face_detection = mp.solutions.face_detection
-    face_detector = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
-    print("MediaPipe Face Detection initialized successfully.")
-except Exception as e:
-    print(f"FAILED to initialize MediaPipe: {str(e)}")
-    face_detector = None
+# [FACE DETECTION] OpenCV DNN Face Detector 초기화
+# 하르 캐스케이드보다 정확하고, 미디이파이보다 환경 의존성이 낮은 매우 안정적인 모델입니다.
+PROTOTXT_PATH = "models/deploy.prototxt"
+MODEL_PATH = "models/res10_300x300_ssd_iter_140000.caffemodel"
+
+# 로컬 테스트 시 models 폴더가 없을 경우를 대비한 경로 체크
+if os.path.exists(PROTOTXT_PATH) and os.path.exists(MODEL_PATH):
+    face_net = cv2.dnn.readNetFromCaffe(PROTOTXT_PATH, MODEL_PATH)
+    print("OpenCV DNN Face Detector loaded successfully.")
+else:
+    face_net = None
+    print("WARNING: Face detection model files not found. Inference might be less accurate.")
 
 # [STATIC FILES MOUNT]
 if not os.path.exists("static"):
@@ -44,7 +45,7 @@ def read_index():
 @app.get("/api/health")
 def health_check():
     """헬스 체크 엔드포인트"""
-    return {"status": "ok", "message": "Emotion Classification API (MediaPipe) is up and running!"}
+    return {"status": "ok", "message": "Emotion Classification API (OpenCV DNN) is up and running!"}
 
 @app.post("/predict")
 async def predict_emotion(file: UploadFile = File(...)):
@@ -60,30 +61,42 @@ async def predict_emotion(file: UploadFile = File(...)):
         if img is None:
             raise ValueError("이미지를 디코딩할 수 없습니다.")
         
-        # 2. MediaPipe를 통한 얼굴 인식
-        # 이미지를 RGB로 변환하여 MediaPipe에 전달합니다.
-        results_mp = face_detector.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        
+        h, w = img.shape[:2]
         processed_img = img
-        if results_mp.detections:
-            # 가장 확신도가 높은 첫 번째 얼굴 선택
-            detection = results_mp.detections[0]
-            bbox = detection.location_data.relative_bounding_box
-            
-            # 정규화된 좌표를 픽셀 좌표로 변환
-            ih, iw, _ = img.shape
-            x, y, w, h = int(bbox.xmin * iw), int(bbox.ymin * ih), int(bbox.width * iw), int(bbox.height * ih)
-            
-            # [PADDING] 얼굴 주변에 25% 여유를 주어 모델의 정확도를 높입니다.
-            padding_w = int(w * 0.25)
-            padding_h = int(h * 0.25)
-            
-            x1 = max(0, x - padding_w)
-            y1 = max(0, y - padding_h)
-            x2 = min(iw, x + w + padding_w)
-            y2 = min(ih, y + h + padding_h)
-            
-            processed_img = img[y1:y2, x1:x2]
+
+        # 2. OpenCV DNN을 통한 얼굴 인식
+        if face_net is not None:
+            # DNN 입력을 위해 300x300으로 리사이즈 및 Mean Subtraction 수행
+            blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
+            face_net.setInput(blob)
+            detections = face_net.forward()
+
+            # 가장 확신도가 높은 얼굴 하나를 찾습니다.
+            best_face = None
+            max_confidence = 0.5 # 최소 확신도 임계값
+
+            for i in range(detections.shape[2]):
+                confidence = detections[0, 0, i, 2]
+                if confidence > max_confidence:
+                    max_confidence = confidence
+                    # 상대 좌표를 절대 픽셀 좌표로 변환
+                    box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                    best_face = box.astype("int")
+
+            if best_face is not None:
+                (x1, y1, x2, y2) = best_face
+                fw, fh = x2 - x1, y2 - y1
+
+                # [PADDING] 얼굴 주변에 25% 여유를 주어 모델의 정확도를 높입니다.
+                padding_w = int(fw * 0.25)
+                padding_h = int(fh * 0.25)
+                
+                px1 = max(0, x1 - padding_w)
+                py1 = max(0, y1 - padding_h)
+                px2 = min(w, x2 + padding_w)
+                py2 = min(h, y2 + padding_h)
+                
+                processed_img = img[py1:py2, px1:px2]
         
         # 3. OpenCV(BGR) -> PIL(RGB) 변환
         rgb_img = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
