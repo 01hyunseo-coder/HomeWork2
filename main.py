@@ -57,12 +57,23 @@ async def predict_emotion(file: UploadFile = File(...)):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
         
-        # 이미지 전체를 기본으로 사용하되, 얼굴이 감지되면 가장 큰 얼굴 영역을 사용합니다.
+        # 이미지 전체를 기본으로 사용하되, 얼굴이 감지되면 여유 있는 얼굴 영역(Padding)을 사용합니다.
         processed_img = img
         if len(faces) > 0:
             # 가장 영역이 넓은 얼굴 선택
             (x, y, w, h) = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[0]
-            processed_img = img[y:y+h, x:x+w]
+            
+            # [PADDING] 얼굴 주변에 25% 여유를 주어 모델이 더 많은 컨텍스트를 읽게 합니다.
+            # ViT 모델은 타이트한 크롭보다 주변 정보가 포함될 때 정확도가 높아집니다.
+            padding_w = int(w * 0.25)
+            padding_h = int(h * 0.25)
+            
+            x1 = max(0, x - padding_w)
+            y1 = max(0, y - padding_h)
+            x2 = min(img.shape[1], x + w + padding_w)
+            y2 = min(img.shape[0], y + h + padding_h)
+            
+            processed_img = img[y1:y2, x1:x2]
         
         # 3. OpenCV(BGR) -> PIL(RGB) 변환 (Transformers 모델 필요 형식)
         rgb_img = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
