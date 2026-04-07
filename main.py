@@ -2,6 +2,7 @@ import io
 import os
 import cv2
 import numpy as np
+import mediapipe as mp
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
@@ -11,18 +12,18 @@ from transformers import pipeline
 # [INIT] FastAPI 앱 초기화
 app = FastAPI(
     title="Emotion Classification API",
-    description="Transformers(ViT) 기반의 얼굴 감정 분류 API 서버 및 프리미엄 웹 UI입니다.",
-    version="2.0.0"
+    description="Transformers(ViT) + MediaPipe 기반의 정밀 얼굴 감정 분류 API입니다.",
+    version="3.0.0"
 )
 
 # [MODELS] 로딩 및 캐싱
-# CPU 전용 PyTorch 환경에 최적화하여 로드합니다.
 print("Loading Transformers model 'dima806/facial_emotions_image_detection'...")
 classifier = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
 
-# [FACE DETECTION] OpenCV Haar Cascade 로드
-# 가장 가볍고 CPU에서 빠른 얼굴 인식 방법입니다.
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# [FACE DETECTION] MediaPipe Face Detection 초기화
+# 고글, 모자, 마스크 등에도 강인한 최신 딥러닝 기반 얼굴 인식기입니다.
+mp_face_detection = mp.solutions.face_detection
+face_detector = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
 
 # [STATIC FILES MOUNT]
 if not os.path.exists("static"):
@@ -37,7 +38,7 @@ def read_index():
 @app.get("/api/health")
 def health_check():
     """헬스 체크 엔드포인트"""
-    return {"status": "ok", "message": "Emotion Classification API (Transformers) is up and running!"}
+    return {"status": "ok", "message": "Emotion Classification API (MediaPipe) is up and running!"}
 
 @app.post("/predict")
 async def predict_emotion(file: UploadFile = File(...)):
@@ -53,41 +54,41 @@ async def predict_emotion(file: UploadFile = File(...)):
         if img is None:
             raise ValueError("이미지를 디코딩할 수 없습니다.")
         
-        # 2. 얼굴 인식 (Face Detection) - 더 높은 정확도를 위해 얼굴 영역만 크롭
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        # 2. MediaPipe를 통한 얼굴 인식
+        # 이미지를 RGB로 변환하여 MediaPipe에 전달합니다.
+        results_mp = face_detector.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         
-        # 이미지 전체를 기본으로 사용하되, 얼굴이 감지되면 여유 있는 얼굴 영역(Padding)을 사용합니다.
         processed_img = img
-        if len(faces) > 0:
-            # 가장 영역이 넓은 얼굴 선택
-            (x, y, w, h) = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[0]
+        if results_mp.detections:
+            # 가장 확신도가 높은 첫 번째 얼굴 선택
+            detection = results_mp.detections[0]
+            bbox = detection.location_data.relative_bounding_box
             
-            # [PADDING] 얼굴 주변에 25% 여유를 주어 모델이 더 많은 컨텍스트를 읽게 합니다.
-            # ViT 모델은 타이트한 크롭보다 주변 정보가 포함될 때 정확도가 높아집니다.
+            # 정규화된 좌표를 픽셀 좌표로 변환
+            ih, iw, _ = img.shape
+            x, y, w, h = int(bbox.xmin * iw), int(bbox.ymin * ih), int(bbox.width * iw), int(bbox.height * ih)
+            
+            # [PADDING] 얼굴 주변에 25% 여유를 주어 모델의 정확도를 높입니다.
             padding_w = int(w * 0.25)
             padding_h = int(h * 0.25)
             
             x1 = max(0, x - padding_w)
             y1 = max(0, y - padding_h)
-            x2 = min(img.shape[1], x + w + padding_w)
-            y2 = min(img.shape[0], y + h + padding_h)
+            x2 = min(iw, x + w + padding_w)
+            y2 = min(ih, y + h + padding_h)
             
             processed_img = img[y1:y2, x1:x2]
         
-        # 3. OpenCV(BGR) -> PIL(RGB) 변환 (Transformers 모델 필요 형식)
+        # 3. OpenCV(BGR) -> PIL(RGB) 변환
         rgb_img = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(rgb_img)
         
         # 4. Transformers 모델 추론
-        # 결과값: [{'label': 'happy', 'score': 0.9}, ...]
         results = classifier(pil_img)
         
-        # 5. 기존 DeepFace 출력 포맷에 맞춰 데이터 가공
+        # 5. 기존 출력 포맷 매칭
         emotion_probabilities = {res['label']: float(res['score'] * 100) for res in results}
         dominant_emotion = results[0]['label'] if results else "unknown"
-        
-        # 라벨 소문자 정규화 (UI 매칭용)
         dominant_emotion = dominant_emotion.lower()
         
         return JSONResponse(content={
